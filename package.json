@@ -1,0 +1,16 @@
+{
+  "name": "little-money-town",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A playful, local-first money town for young explorers.",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test tests/*.test.cjs",
+    "check": "node --check engine.js && node --check mini-games.js && node --check arcade-games.js && node --check app.js && node --check server.js",
+    "test:browser": "node tests/browser.cjs",
+    "test:tilt": "node tests/tilt.browser.cjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1"
+  }
+}

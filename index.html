@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f8f5e9">
+  <title>小小生活家 · 放学后的零花钱</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🎒%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="arcade-games.css">
+  <script defer src="engine.js"></script>
+  <script defer src="mini-games.js"></script>
+  <script defer src="arcade-games.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="./"><span class="brand-icon" aria-hidden="true">🎒</span><span>小小生活家</span></a>
+    <div class="top-actions"><button class="icon-button" id="sound" aria-label="开启音效" title="开启音效">♪</button><button class="icon-button guide-nav" data-open="guide" aria-label="小向导">👆</button></div>
+  </header>
+  <main>
+    <section class="intro">
+      <h1 id="day-heading">放学啦！</h1>
+      <div class="day-tools"><button class="weather-entry" data-open="weather"><span id="weather-icon" aria-hidden="true">☀️</span><span>天气预报</span></button><button class="date-pill" data-open="calendar"><span aria-hidden="true">📅</span><span id="date-label"></span><span>游戏日历</span></button></div>
+    </section>
+    <div class="pocket-ribbon"><span>🪙 钱包 <strong id="cash">100</strong></span><div class="energy-card" id="energy-card"><div class="energy-heading"><span>⚡ 精力</span><strong id="energy" aria-live="polite"></strong></div><div class="energy-track" aria-hidden="true"><i></i><i></i><i></i></div><small id="energy-hint">明天补满</small></div></div>
+    <button class="joy-ribbon" id="joy-open" data-open="joy"><span aria-hidden="true">😊</span><span>今日开心 <b id="joy-count">0</b><span class="joy-track" aria-hidden="true"><i id="joy-fill"></i></span></span><span aria-hidden="true">›</span></button>
+    <section class="daily-mission" aria-labelledby="mission-title">
+      <div class="mission-art" id="mission-art" aria-hidden="true"></div>
+      <div class="mission-copy"><span class="mission-tag" id="mission-tag"></span><h2 id="mission-title"></h2><p id="mission-copy"></p><div class="mission-reward" id="mission-reward"></div><div class="mission-actions"><button class="button primary" id="daily-start" data-action="daily-main">开始挑战 ▶</button><button class="button secondary" id="daily-save" data-open="savings" hidden>🏦 存一点</button></div><button class="text-button" id="choose-challenge" data-open="work">换个挑战 →</button></div>
+    </section>
+    <p class="expense-reminder" id="expense-reminder" hidden></p>
+    <nav class="home-shortcuts" aria-label="常用入口"><button class="home-link bag-shortcut" data-open="home"><span>🎒</span>书包</button><button class="home-link journal-shortcut" data-open="journal"><span>📒</span>手账</button><button class="home-link" id="more-places" data-open="places"><span>🧭</span>逛一逛</button></nav>
+    <button class="text-button bedtime" id="next-day" data-action="next-day">🌙 结束今天</button>
+    <footer><span id="save-status">进度自动保存</span><button class="text-button" id="reset">重新开始</button></footer>
+  </main>
+  <dialog id="modal"><div class="modal-top"><button class="text-button" id="scene-back" data-action="scene-back">← 返回</button><span class="scene-wallet">🪙 <b id="scene-cash">100</b></span><span class="scene-joy" aria-label="今日开心">😊 <b id="scene-joy" aria-live="polite">0</b></span><button class="icon-button" id="close-modal" aria-label="回到首页">×</button></div><div id="modal-body"></div><div id="joy-feedback" class="joy-feedback" role="status" hidden></div></dialog>
+  <div id="guide-coach" hidden>
+    <button id="guide-hand" class="guide-hand" data-action="guide-toggle" aria-label="展开小向导提示" aria-expanded="false" aria-controls="guide-detail"><span class="hand-finger" aria-hidden="true">👇</span><span id="guide-hand-label"></span></button>
+    <section id="guide-detail" class="guide-detail" hidden aria-label="当前步骤说明"></section>
+  </div>
+  <div id="toast" role="status" aria-live="polite"></div><div id="confetti" aria-hidden="true"></div>
+</body>
+</html>
