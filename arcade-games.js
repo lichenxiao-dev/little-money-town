@@ -16,12 +16,24 @@
   const integer = Number.isInteger;
   const finite = Number.isFinite;
 
-  function screenTilt(beta, gamma, angle) {
-    const radians = Math.PI / 180;
-    const pitch = beta * radians, roll = gamma * radians, screen = angle * radians;
-    // Project gravity onto screen-right; Euler angles themselves jump near upright poses.
-    const right = Math.cos(pitch) * Math.sin(roll) * Math.cos(screen) + Math.sin(pitch) * Math.sin(screen);
-    return Math.asin(bounded(right, -1, 1)) / radians;
+  function orientationQuaternion({ alpha, beta, gamma }) {
+    const half = Math.PI / 360;
+    const a = (alpha ?? 0) * half, b = beta * half, g = gamma * half;
+    const ca = Math.cos(a), sa = Math.sin(a), cb = Math.cos(b), sb = Math.sin(b), cg = Math.cos(g), sg = Math.sin(g);
+    // DeviceOrientation uses intrinsic Z-X-Y rotations.
+    return [ca * sb * cg - sa * cb * sg, ca * cb * sg + sa * sb * cg,
+      ca * sb * sg + sa * cb * cg, ca * cb * cg - sa * sb * sg];
+  }
+  function tiltOffset(center, current, angle) {
+    const [ax, ay, az, aw] = orientationQuaternion(center);
+    const [bx, by, bz, bw] = orientationQuaternion(current);
+    const x = aw * bx - ax * bw - ay * bz + az * by;
+    const y = aw * by + ax * bz - ay * bw - az * bx;
+    const w = aw * bw + ax * bx + ay * by + az * bz;
+    const screen = angle * Math.PI / 180;
+    // Relative twist about screen-up keeps sensitivity independent of the holding pitch.
+    const offset = 2 * Math.atan2(x * Math.sin(screen) + y * Math.cos(screen), w) * 180 / Math.PI;
+    return ((offset + 540) % 360) - 180;
   }
 
   function randomInt(rng, count) {
@@ -240,7 +252,7 @@
     const shownStage = integer(stage) && stage > 0 ? stage : 1;
     const on = (element, event, fn) => element.addEventListener(event, fn, { signal: abort.signal });
     const rules = {
-      catcher: "包裹算 1 件，整箱算 2 件；带 × 的破损货物要避开。漏接会少收货，接到破损货会用掉一次机会。键盘 ← → 或 A / D 移动，按住可连续移动；操作区按空格暂停或继续。平板开始游戏时会自动尝试倾斜控制；首次使用可能需要允许系统权限，并通过 HTTPS 或本机地址打开。拿稳平板后，左右倾斜来移动；转屏或暂停后重新以当前姿势为准。不同意或不支持时，仍能用手指拖动篮子或按左右键。",
+      catcher: "包裹算 1 件，整箱算 2 件；带 × 的破损货物要避开。漏接会少收货，接到破损货会用掉一次机会。键盘 ← → 或 A / D 移动，按住可连续移动；操作区按空格暂停或继续。平板开始游戏时会自动尝试倾斜控制；首次使用可能需要允许系统权限，并通过 HTTPS 或本机地址打开。用舒服的姿势拿稳，轻轻左右倾斜就能移动，不用大幅摆动。感觉偏向一边时，点“校准居中”，把现在的握姿作为正中；转屏或暂停后也会重新以当前姿势为准。不同意或不支持时，仍能用手指拖动篮子或按左右键。",
       balloons: "气球从下面升起来。圆点 1 分、菱形 2 分、星星 3 分，分越高飞得越快。35 秒结束后，达到目标分数就过关；漏掉气球不扣分。先打哪个由你决定。手指点气球，或按 Tab 选择再按空格、Enter；数字 1～4 对应从左到右的列，只能打到已经飞进场的气球。分数不是金币，通关才领固定报酬。",
       digging: "🙂 是你的位置，每次只能走到上下左右相邻的一格。普通土和已开小路花 1 点精力，硬土花 2 点，石头不能走。先选找种子的顺序，别忘了还要走回入口。绕路可能省下挖硬土的精力，也可能更费力。提示只给下一步，次数有限。第一档会显示一条参考路线。这里的精力只属于这关，不扣首页精力；失败可以重来。方向键选格，Enter 或空格走过去。"
     };
@@ -254,6 +266,7 @@
         ${id === "catcher" ? '<button type="button" data-arcade="left" aria-label="篮子向左">◀ 左</button><button type="button" data-arcade="right" aria-label="篮子向右">右 ▶</button>' : ""}
         ${id === "digging" ? '<button type="button" data-arcade="scan">👣 提示一步</button>' : '<button type="button" data-arcade="pause">暂停</button>'}
         <button type="button" data-arcade="restart">重新来</button>
+        ${id === "catcher" ? '<button type="button" data-arcade="calibrate" hidden>◎ 校准居中</button>' : ""}
       </div>
       <details class="arcade-guide"><summary>? 玩法提示</summary><p>${rules[id]}</p>${id === "catcher" ? '<button type="button" class="button secondary" data-arcade="tilt" aria-pressed="false">启用倾斜控制</button>' : ""}<p>这里的件数只是任务进度，不是钱包里的钱。完成劳动后领取约定报酬；重来不扣钱，但会保留失误和帮助记录。</p></details>
     </section>`;
@@ -265,6 +278,7 @@
     const restart = host.querySelector('[data-arcade="restart"]');
     const pause = host.querySelector('[data-arcade="pause"]');
     const tilt = host.querySelector('[data-arcade="tilt"]');
+    const calibrate = host.querySelector('[data-arcade="calibrate"]');
     let focusCell = game.entry || 0;
     function focusBoard() {
       const target = id === "digging" ? board.querySelector(`[data-cell="${game.position}"]`)
@@ -291,15 +305,19 @@
       const angle = win.screen.orientation?.angle ?? win.orientation ?? 0;
       if (!finite(angle)) return;
       if (angle !== tiltAngle) { tiltCenter = null; tiltAngle = angle; }
-      const value = screenTilt(event.beta, event.gamma, angle);
-      if (tiltCenter === null) { tiltCenter = value; tiltOrigin = game.basket; }
-      dispatch({ type: "basket", x: bounded(tiltOrigin + (value - tiltCenter) * 2, 7, 93) });
+      const value = { alpha: finite(event.alpha) ? event.alpha : null, beta: event.beta, gamma: event.gamma };
+      if (tiltCenter === null || (tiltCenter.alpha === null) !== (value.alpha === null)) { tiltCenter = value; tiltOrigin = game.basket; }
+      const offset = tiltOffset(tiltCenter, value, angle);
+      const movement = Math.sign(offset) * Math.max(0, Math.abs(offset) - 0.75) / (12 - 0.75) * 46;
+      dispatch({ type: "basket", x: bounded(tiltOrigin + movement, 7, 93) });
     }
     function syncTilt() {
       if (!tilt) return;
       tilt.disabled = tiltPending || game.won || game.lost;
       tilt.textContent = tiltPending ? "等待允许…" : tiltEnabled ? "关闭倾斜控制" : "启用倾斜控制";
       tilt.setAttribute("aria-pressed", String(tiltEnabled));
+      calibrate.hidden = !tiltEnabled;
+      calibrate.disabled = tiltPending || game.won || game.lost;
       if (!tiltEnabled || stopped() || !connected()) { stopTilt(); return; }
       if (tiltListening) return;
       tiltListening = true;
@@ -326,7 +344,7 @@
           ? await win.DeviceOrientationEvent.requestPermission() : "granted";
         if (!connected()) return;
         tiltEnabled = permission === "granted";
-        notice(game, tiltEnabled ? "拿稳平板，再左右倾斜试试！" : "没有开启感应，仍可拖动篮子或按左右键。");
+        notice(game, tiltEnabled ? "轻轻左右倾斜就好，偏了可以点“校准居中”。" : "没有开启感应，仍可拖动篮子或按左右键。");
       } catch {
         if (connected()) notice(game, "感应没能开启，先用手指拖动篮子吧。");
       } finally {
@@ -484,6 +502,12 @@
       const control = button.dataset.arcade;
       if (control === "restart") { reset(); return; }
       if (control === "tilt") { toggleTilt(); return; }
+      if (control === "calibrate" && tiltEnabled && !game.won && !game.lost) {
+        tiltCenter = null;
+        notice(game, "篮子已回到正中，拿稳平板，再轻轻左右倾斜。");
+        dispatch({ type: "basket", x: 50 });
+        return;
+      }
       if (control === "pause" && !game.won && !game.lost) {
         manualPause = !manualPause;
         heldDirection = 0;
@@ -613,7 +637,7 @@
     return { destroy };
   }
 
-  const api = { META, create, move, mount, screenTilt };
+  const api = { META, create, move, mount, tiltOffset };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ArcadeGames = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

@@ -43,11 +43,11 @@ async function main() {
       await expect(page.locator('[data-arcade="tilt"]')).toBeHidden();
       assert.deepEqual(await page.evaluate(() => window.permissionCalls), touch ? [true] : [], "Permission is requested only by starting the game on a touch device");
       const basket = () => page.locator('[data-arcade="basket"]').evaluate((el) => parseFloat(el.style.left));
-      const orient = (gamma, beta = 0) => page.evaluate(({ gamma, beta }) => {
+      const orient = (gamma, beta = 0, alpha = 0) => page.evaluate(({ gamma, beta, alpha }) => {
         const event = new Event("deviceorientation");
-        Object.assign(event, { beta, gamma });
+        Object.assign(event, { beta, gamma, alpha });
         window.dispatchEvent(event);
-      }, { gamma, beta });
+      }, { gamma, beta, alpha });
       if (touch && permission === "granted") {
         await expect(page.locator('[data-arcade="tilt"]')).toHaveAttribute("aria-pressed", "true");
         await orient(0); await orient(10);
@@ -72,11 +72,47 @@ async function main() {
           assert.ok(await basket() < beforeRotation, `Screen-left movement at ${angle} degrees`);
           await orient(0);
         }
+        const calibrate = page.locator('[data-arcade="calibrate"]');
+        await expect(calibrate).toBeVisible();
+        for (const beta of [0, 70, 90, 110]) {
+          await calibrate.tap();
+          await orient(20, beta, 35);
+          assert.equal(await basket(), 50, "Calibration recenters even with an initially tilted grip");
+          await orient(25, beta, 35);
+          const right = await basket();
+          assert.ok(right > 65 && right < 75, "A five-degree movement is responsive at every holding pitch");
+          await orient(15, beta, 35);
+          assert.ok(Math.abs((50 - await basket()) - (right - 50)) < .01, "Left/right response is symmetric");
+          await orient(20.4, beta, 35);
+          assert.equal(await basket(), 50, "Small hand tremors stay in the neutral zone");
+          await orient(32, beta, 35);
+          assert.ok(await basket() > 92.9, "Twelve degrees reaches the right edge");
+          await orient(8, beta, 35);
+          assert.ok(await basket() < 7.1, "Twelve degrees reaches the left edge");
+        }
+        await page.setViewportSize({ width: 1180, height: 820 });
+        await page.evaluate(() => Object.defineProperty(screen.orientation, "angle", { configurable: true, value: 90 }));
+        await calibrate.tap(); await orient(60, 0, 0);
+        for (const degrees of [-5, 5]) {
+          const d = degrees * Math.PI / 180, pitch = Math.PI / 3;
+          await orient(Math.atan2(Math.sin(pitch), Math.cos(pitch) * Math.cos(d)) * 180 / Math.PI,
+            Math.asin(Math.cos(pitch) * Math.sin(d)) * 180 / Math.PI,
+            Math.atan2(-Math.sin(pitch) * Math.sin(d), Math.cos(d)) * 180 / Math.PI);
+          assert.ok(degrees < 0 ? await basket() < 35 : await basket() > 65, "Steep landscape grip stays responsive");
+        }
+        await page.setViewportSize({ width: 320, height: 740 });
+        await expect(calibrate).toBeVisible();
+        assert.ok(await page.locator("#modal").evaluate((el) => el.scrollWidth <= el.clientWidth + 1));
+        await page.setViewportSize({ width: 820, height: 1180 });
+        await page.evaluate(() => Object.defineProperty(screen.orientation, "angle", { configurable: true, value: 0 }));
+        await calibrate.tap(); await orient(0);
+        await expect(page.locator("#cash")).toHaveText("100");
       } else if (permission === "pending") {
         const progress = await page.locator('[data-arcade="delivery"]').getAttribute("style");
         await page.clock.runFor(10000);
         assert.equal(await page.locator('[data-arcade="delivery"]').getAttribute("style"), progress, "The permission dialog cannot consume playing time");
       } else {
+        await expect(page.locator('[data-arcade="calibrate"]')).toBeHidden();
         await orient(0); await orient(20);
         assert.equal(await basket(), 50);
         await page.locator('[data-arcade="right"]').click();
