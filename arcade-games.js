@@ -16,6 +16,14 @@
   const integer = Number.isInteger;
   const finite = Number.isFinite;
 
+  function screenTilt(beta, gamma, angle) {
+    const radians = Math.PI / 180;
+    const pitch = beta * radians, roll = gamma * radians, screen = angle * radians;
+    // Project gravity onto screen-right; Euler angles themselves jump near upright poses.
+    const right = Math.cos(pitch) * Math.sin(roll) * Math.cos(screen) + Math.sin(pitch) * Math.sin(screen);
+    return Math.asin(bounded(right, -1, 1)) / radians;
+  }
+
   function randomInt(rng, count) {
     const value = rng();
     if (!finite(value) || value < 0 || value >= 1) throw new RangeError("rng must return a number in [0, 1)");
@@ -228,7 +236,7 @@
     let manualPause = false, background = doc.hidden || !doc.hasFocus();
     let heldDirection = 0, heldTime = 0, dragPointer = null;
     let paintedBalloons = null, paintedRevision = -1;
-    let tiltEnabled = false, tiltPending = false, tiltListening = false, tiltCenter = null, tiltOrigin = 50, tiltTimer = 0;
+    let tiltEnabled = false, tiltPending = false, tiltListening = false, tiltCenter = null, tiltOrigin = 50, tiltTimer = 0, tiltAngle = null;
     const shownStage = integer(stage) && stage > 0 ? stage : 1;
     const on = (element, event, fn) => element.addEventListener(event, fn, { signal: abort.signal });
     const rules = {
@@ -280,8 +288,10 @@
     function orient(event) {
       if (!connected() || stopped() || !tiltEnabled || heldDirection || dragPointer !== null || !finite(event.gamma) || !finite(event.beta)) return;
       win.clearTimeout(tiltTimer);
-      const angle = (win.screen.orientation?.angle ?? win.orientation ?? 0) * Math.PI / 180;
-      const value = event.gamma * Math.cos(angle) + event.beta * Math.sin(angle);
+      const angle = win.screen.orientation?.angle ?? win.orientation ?? 0;
+      if (!finite(angle)) return;
+      if (angle !== tiltAngle) { tiltCenter = null; tiltAngle = angle; }
+      const value = screenTilt(event.beta, event.gamma, angle);
       if (tiltCenter === null) { tiltCenter = value; tiltOrigin = game.basket; }
       dispatch({ type: "basket", x: bounded(tiltOrigin + (value - tiltCenter) * 2, 7, 93) });
     }
@@ -603,7 +613,7 @@
     return { destroy };
   }
 
-  const api = { META, create, move, mount };
+  const api = { META, create, move, mount, screenTilt };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ArcadeGames = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

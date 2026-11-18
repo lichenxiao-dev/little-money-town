@@ -113,7 +113,8 @@ dialog{padding:15px;border-radius:24px}.game-hud{padding:9px 8px;gap:5px}.game-h
 :root{--muted:#756586;font-size:17px}
 main{max-width:960px}.topbar{height:76px}.topbar .icon-button{width:46px;height:46px}.brand{font-size:23px}.guide-nav{padding:0}.intro{margin-bottom:18px}.intro h1{font-size:30px;margin:0}.date-pill{max-width:none}.date-pill>span:nth-child(2){font-size:17px}.date-pill>span:last-child{font-size:14px}.pocket-ribbon{font-size:18px}.pocket-ribbon #cash{font-size:30px}.mission-tag{font-size:16px}.mission-copy>p{font-size:18px}.daily-mission{padding-bottom:28px}.hero-sticker{display:none}
 .home-shortcuts{display:grid;grid-template-columns:1fr 1fr;gap:14px}.home-link{display:flex;align-items:center;justify-content:center;gap:14px;border:2px solid #d5c3f4;border-radius:22px;background:#eee3ff;padding:18px;font-size:23px;font-weight:800;box-shadow:0 4px 0 #d9c7ef}.home-link>span{font-size:39px}.home-link:last-child{background:#ffead3;border-color:#ffc78e;box-shadow:0 4px 0 #edc79f}.bedtime{display:block;margin:20px auto 12px}.text-button{font-size:16px;min-height:44px}.button{font-size:18px;min-height:52px}.icon-button{min-width:44px;min-height:44px}.expense-reminder{font-size:16px}footer{font-size:14px}.prototype{font-size:14px}
-body:has(dialog[open]){overflow:hidden}
+html.scene-open{overflow:hidden;overscroll-behavior:none}
+html.scene-open body{position:fixed;top:var(--scene-top,0);left:0;right:0;width:100%;overflow:hidden}
 dialog{width:min(760px,calc(100% - 32px));max-height:calc(100dvh - 32px);padding:22px;border:2px solid #d8c6f5;background:#fbf8ff;box-shadow:0 16px 70px #6e48a51a}
 dialog::backdrop{background:#f2edfc;backdrop-filter:none}
 .modal-top{position:sticky;top:-22px;z-index:6;background:#fbf8ff;padding:10px 0;margin:0 0 18px;border-bottom:1px solid #e7dcf6;gap:12px}.scene-wallet{margin-left:auto;font-size:22px;color:#6b498a}.modal-top .text-button{font-size:17px;padding:8px}.modal-top .icon-button{background:white;border:2px solid #ded0f5;font-size:26px}
@@ -155,7 +156,8 @@ dialog[open][data-screen=shop]{display:flex;flex-direction:column;height:min(900
 .sketch-tools{display:flex;flex-wrap:wrap;gap:10px;margin:16px 0}
 .sketch-tools .color-button{min-width:52px;min-height:52px}
 #sketch-paper,.sketch-preview{display:block;width:100%;aspect-ratio:320/210;border:2px solid #d8c6f5;border-radius:16px;background:#fffdf5}
-#sketch-paper{touch-action:none;user-select:none;cursor:crosshair}
+.sketch-surface{touch-action:none;overscroll-behavior:contain}
+#sketch-paper{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:crosshair}
 #sketch-paper[data-erasing=true]{cursor:cell}
 .sketch-preview{max-width:180px}
 .gift-art{display:block;width:min(100%,420px);aspect-ratio:320/210;margin:20px auto;background:#fffdf5;border:3px solid #e6bfda;border-radius:18px}
@@ -195,6 +197,10 @@ dialog[data-screen=shop] .basket{position:static;flex-shrink:0;margin-top:10px;p
 .day-tools{display:flex;gap:8px;align-items:stretch}.weather-entry{display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;border:2px solid #d9e9f3;border-radius:20px;background:#f0f7fc;font-size:16px;font-weight:700;white-space:nowrap}.weather-entry>span:first-child{font-size:26px}
 .drawing-templates{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:14px 0}.drawing-templates .button{padding:10px 8px;font-size:15px}.drawing-templates [aria-pressed=true]{background:#e9ddf8;border-color:#b79bd5;color:#563c79}.drawing{border-radius:20px;border:2px solid #e6dff0;margin-top:14px}
 .drink-menu,.ingredient-list{display:grid;gap:14px;margin:16px 0}.drink-card,.ingredient-card{padding:16px;border:2px solid #d8dfc8;background:#fffdf5;border-radius:20px}.drink-card .stall-pricing{margin:8px 0;padding:10px}.drink-card .quiet-note{margin:4px 0 12px}.ingredient-card .actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.ingredient-card .button{padding:9px 4px;font-size:15px!important}.drink-card .stall-price-control output{font-size:23px;font-weight:800}
+dialog[open][data-screen=stall]{display:flex;flex-direction:column;height:min(900px,calc(100dvh - 32px));overflow:hidden}
+dialog[data-screen=stall] .modal-top{position:static;flex-shrink:0;margin-bottom:12px}
+dialog[data-screen=stall] #modal-body{flex:1;min-height:0;overflow-y:auto;overscroll-behavior-y:contain;touch-action:pan-y pinch-zoom;-webkit-overflow-scrolling:touch;scrollbar-gutter:stable;padding-right:4px}
+@media(max-width:520px){dialog[open][data-screen=stall]{height:100dvh}}
 .auto-stock-toggle{display:flex;align-items:center;gap:10px;min-height:48px}.auto-stock-toggle input{width:24px;height:24px;accent-color:#618567}.auto-stock-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:12px 0}.auto-stock-fields label{font-size:14px}.auto-stock-fields .amount{width:100%;min-width:0;padding:8px;margin:6px 0}
 .ledger-day-nav{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;margin:18px 0}.ledger-day-nav>div{text-align:center}.ledger-day-nav strong,.ledger-day-nav small{display:block}.ledger-day-nav strong{font-size:18px}.ledger-day-nav .button{padding:10px 9px;font-size:16px!important}.daily-money strong{overflow-wrap:anywhere}.daily-money>div{min-width:0}#daily-ledger .ledger>div{min-width:0;overflow-wrap:anywhere}
 .weather-days{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:20px 0}.weather-day{display:flex;flex-direction:column;align-items:center;gap:12px;padding:18px 10px;border-radius:20px;background:#fff4d9;text-align:center}.weather-day:last-child{background:#edf3fc}.weather-day>span,.weather-day>small{font-size:14px}.weather-day>b{font-size:42px}.weather-day>strong{font-size:20px}.weather-day>small{color:var(--muted)}

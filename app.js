@@ -8,6 +8,7 @@
   const escape = (text) => String(text).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   const signed = (n) => `${n > 0 ? "+" : ""}${n}`;
   const modal = $("#modal");
+  let pageScroll = null;
   const GUIDE = {
     1: { title: "先玩一关！", text: "完成今天的小游戏，赚一笔自己的零用钱。失败可以重试，不扣钱。", button: "开始今天的挑战", target: "#daily-start", screen: "daily", skip: "先不挑战，去逛逛" },
     2: { title: "这笔钱，怎么用？", text: "买一件想要的，或者先留在钱包里。你决定。", button: "去小卖部看看", target: "#daily-start", screen: "shop", skip: "今天先不买" },
@@ -327,14 +328,28 @@
     modal.setAttribute("aria-label", $("#modal-body h2")?.textContent || "小游戏");
     $("#scene-back").hidden = screen === "places";
     $("#scene-back").textContent = ["sketch", "pencilcase"].includes(screen) ? "← 回到书包" : "← 返回";
-    if (!modal.open) modal.showModal();
+    if (!modal.open) {
+      pageScroll = { x: window.scrollX, y: window.scrollY };
+      document.documentElement.style.setProperty("--scene-top", `${-pageScroll.y}px`);
+      document.documentElement.classList.add("scene-open");
+      modal.showModal();
+    }
     modal.scrollTop = 0;
+    $("#modal-body").scrollTop = 0;
     renderGuide();
+  }
+  function unlockPage() {
+    if (!pageScroll) return;
+    const { x, y } = pageScroll;
+    pageScroll = null;
+    document.documentElement.classList.remove("scene-open");
+    document.documentElement.style.removeProperty("--scene-top");
+    window.scrollTo(x, y);
   }
   function close() {
     clearJoyFeedback(); drawing = null;
     miniController?.destroy(); miniController = null;
-    modal.close(); confirmation = null; confirmationReturn = null; task = null; play = null;
+    modal.close(); unlockPage(); confirmation = null; confirmationReturn = null; task = null; play = null;
     guideScreen = "town"; guideManual = false; guideExpanded = false;
     renderGuide();
   }
@@ -751,8 +766,11 @@
       </svg><p class="center" id="drawing-progress" role="status">${draft.rewarded ? "画好啦，还可以换颜色！" : `涂好了 ${Object.keys(draft.fills).length} / ${template.parts.length}`}</p>${draft.rewarded && state.colorings[templateId] ? `<button class="button secondary wide" id="coloring-gift" data-action="gift-open" data-id="coloring:${templateId}">💌 作品已保存，做成礼物</button>` : ""}<details class="quiet-note"><summary>？画笔说明</summary><p>${colored ? "彩笔可以反复用。" : "铅笔也能画，彩笔可以涂彩色。"}不扣钱，不扣精力。换模板会留着本次的草稿，未完成的草稿退出后不保留。整幅涂好会自动保存，每种模板保留最新完成的一张，可在“今日开心”里做成礼物。想从头自由画，可以用书包里的画本。</p></details><button class="button secondary wide" data-open="${back}">${back === "joy" ? "回到今天的小快乐" : "收好画笔，回到书包"}</button>`, "coloring");
     drawing = { tool, templateId, drafts, draft, total: template.parts.length, back, painted: new Set(Object.keys(draft.fills)), rewarded: draft.rewarded };
   }
+  function sketchLine(stroke) {
+    return `M${stroke.points.map((point) => point.join(",")).join(" L")} L${stroke.points.at(-1).join(",")}`;
+  }
   function sketchPaths(strokes) {
-    return strokes.map((stroke, index) => `<path data-stroke="${index}" d="M${stroke.points.map((point) => point.join(",")).join(" L")} L${stroke.points.at(-1).join(",")}" fill="none" stroke="${stroke.color}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>`).join("");
+    return strokes.map((stroke, index) => `<path data-stroke="${index}" d="${sketchLine(stroke)}" fill="none" stroke="${stroke.color}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>`).join("");
   }
   function startSketch(id) {
     if (!T.SKETCH_ITEMS.includes(id) || !state.owned.includes(id)) return;
@@ -761,11 +779,27 @@
     let strokes = structuredClone(state.sketches[id] || []), color = colors[0], erasing = false, pointer = null, active = true;
     show(`<h2>📓 我的小画本</h2><p>用手指画，画什么由你决定。</p><div id="sketch-editor"><div class="sketch-tools" aria-label="画笔工具">${colors.map((c, index) => `<button class="color-button" data-sketch-color="${c}" style="--swatch:${c}" aria-label="${names[index]}" aria-pressed="${index === 0}"><span></span>${names[index]}</button>`).join("")}${state.owned.includes("eraser") ? '<button class="button secondary" data-sketch="erase" aria-pressed="false">🧽 橡皮擦</button>' : ""}</div><svg id="sketch-paper" viewBox="0 0 320 210" aria-label="用手指或画笔自由画画" role="img">${sketchPaths(strokes)}</svg><div class="actions"><button class="button secondary" data-sketch="undo">撤回一笔</button><button class="button secondary" data-sketch="new">重新画一张</button><button class="button primary" data-sketch="save">保存作品</button></div><div class="notice" id="sketch-reset-confirm" role="group" aria-label="重新画一张" hidden><p>要换一张空白纸吗？保存新画后，这本原来的画会被替换。已经做好的礼物不会变。</p><div class="actions"><button class="button secondary" data-sketch="cancel-new">继续这张</button><button class="button primary" data-sketch="confirm-new">换空白纸</button></div></div><p class="muted" id="sketch-status" role="status"></p></div><details class="quiet-note"><summary>？画本怎么玩</summary><p>买到彩笔，可以用彩色画；有橡皮，可以擦掉一笔。保存后下次还能接着画，不扣钱、不扣精力。每本最多留 40 笔，保存会更新这本的画。重新画一张后，如果没有保存就退出，原来的已保存作品还在。</p></details><button class="text-button" data-open="home">收好画本，回到书包</button>`, "sketch");
     const host = $("#sketch-editor"), paper = $("#sketch-paper"), abort = new AbortController();
+    const surface = document.createElement("div");
+    surface.className = "sketch-surface";
+    paper.before(surface); surface.append(paper);
+    const blockScroll = (event) => { if (event.cancelable) event.preventDefault(); };
+    for (const event of ["touchstart", "touchmove"]) surface.addEventListener(event, blockScroll, { passive: false, signal: abort.signal });
     const resetPrompt = $("#sketch-reset-confirm");
     const on = (element, event, fn) => element.addEventListener(event, fn, { signal: abort.signal });
     const status = (text) => { $("#sketch-status").textContent = text; };
     function paint() {
-      paper.innerHTML = sketchPaths(strokes);
+      const paths = [...paper.children];
+      strokes.forEach((stroke, index) => {
+        let path = paths[index];
+        if (!path) {
+          paper.insertAdjacentHTML("beforeend", sketchPaths([stroke]));
+          path = paper.lastElementChild;
+        }
+        path.dataset.stroke = index;
+        path.setAttribute("d", sketchLine(stroke));
+        path.setAttribute("stroke", stroke.color);
+      });
+      paths.slice(strokes.length).forEach((path) => path.remove());
       host.querySelector('[data-sketch="undo"]').disabled = !strokes.length;
       host.querySelector('[data-sketch="new"]').disabled = !strokes.length;
       host.querySelector('[data-action="gift-open"]')?.remove();
@@ -797,9 +831,11 @@
       const stroke = strokes.at(-1), next = point(event), last = stroke.points.at(-1);
       if (Math.hypot(next[0] - last[0], next[1] - last[1]) < 2) return;
       if (stroke.points.length === 128) stroke.points = stroke.points.filter((_, i) => i % 2 === 0 || i === 127);
-      stroke.points.push(next); paint();
+      stroke.points.push(next);
+      paper.lastElementChild.setAttribute("d", sketchLine(stroke));
     });
-    function release() {
+    function release(event) {
+      if (event?.pointerId !== undefined && event.pointerId !== pointer) return;
       if (pointer !== null && paper.hasPointerCapture(pointer)) paper.releasePointerCapture(pointer);
       pointer = null;
     }
@@ -1097,9 +1133,9 @@
         if (!Number.isInteger(price) || price < T.STALL.minPrice || price > T.STALL.maxPrice) break;
         if (opening) openingStallPrice = price;
         else if (!commit({ type: action, price })) break;
-        const scroll = modal.scrollTop;
+        const scroll = $("#modal-body").scrollTop;
         openStall();
-        modal.scrollTop = scroll;
+        $("#modal-body").scrollTop = scroll;
         const selector = `[data-action="stall-price"][data-change="${button.dataset.change}"]:not(:disabled)`;
         ($(selector) || $('[data-action="stall-price"]:not(:disabled)')).focus({ preventScroll: true });
         break;
@@ -1124,7 +1160,7 @@
       case "stall-drink-price": {
         const id = button.dataset.id, item = state.stall?.menu[id];
         if (item && commit({ type: action, id, price: item.price + Number(button.dataset.change) })) {
-          const scroll = modal.scrollTop; openStall(); modal.scrollTop = scroll;
+          const scroll = $("#modal-body").scrollTop; openStall(); $("#modal-body").scrollTop = scroll;
           $(`[data-drink="${id}"] [data-action="stall-drink-price"]:not(:disabled)`)?.focus({ preventScroll: true });
         }
         break;
@@ -1161,6 +1197,7 @@
   $("#close-modal").addEventListener("click", close);
   modal.addEventListener("close", () => {
     if (modal.open) return;
+    unlockPage();
     clearJoyFeedback(); drawing = null;
     miniController?.destroy(); miniController = null;
     confirmation = null; confirmationReturn = null; task = null; play = null;

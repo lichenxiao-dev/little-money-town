@@ -43,11 +43,11 @@ async function main() {
       await expect(page.locator('[data-arcade="tilt"]')).toBeHidden();
       assert.deepEqual(await page.evaluate(() => window.permissionCalls), touch ? [true] : [], "Permission is requested only by starting the game on a touch device");
       const basket = () => page.locator('[data-arcade="basket"]').evaluate((el) => parseFloat(el.style.left));
-      const orient = (gamma) => page.evaluate((gamma) => {
+      const orient = (gamma, beta = 0) => page.evaluate(({ gamma, beta }) => {
         const event = new Event("deviceorientation");
-        Object.assign(event, { beta: 0, gamma });
+        Object.assign(event, { beta, gamma });
         window.dispatchEvent(event);
-      }, gamma);
+      }, { gamma, beta });
       if (touch && permission === "granted") {
         await expect(page.locator('[data-arcade="tilt"]')).toHaveAttribute("aria-pressed", "true");
         await orient(0); await orient(10);
@@ -61,6 +61,17 @@ async function main() {
         assert.equal(await basket(), paused, "Resuming recalibrates without a jump");
         await orient(-30);
         assert.ok(await basket() < paused);
+        for (const [angle, beta, gamma] of [[90, 10, 0], [180, 0, -10], [270, -10, 0], [0, 0, 10]]) {
+          await page.evaluate((angle) => Object.defineProperty(screen.orientation, "angle", { configurable: true, value: angle }), angle);
+          const beforeRotation = await basket();
+          await orient(0);
+          assert.equal(await basket(), beforeRotation, "Changed screen axes recalibrate even without an orientationchange event");
+          await orient(gamma, beta);
+          assert.ok(await basket() > beforeRotation, `Screen-right movement at ${angle} degrees`);
+          await orient(-gamma, -beta);
+          assert.ok(await basket() < beforeRotation, `Screen-left movement at ${angle} degrees`);
+          await orient(0);
+        }
       } else if (permission === "pending") {
         const progress = await page.locator('[data-arcade="delivery"]').getAttribute("style");
         await page.clock.runFor(10000);
